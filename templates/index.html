@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Confidence Meter App</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #000000; /* Pure black background */
+            color: #ffffff; /* Light text */
+            text-align: center;
+            padding: 20px;
+            margin: 0;
+        }
+
+        h1 {
+            color: #00bfff; /* Bright blue for the title */
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 5px #000;
+        }
+
+        video {
+            border: 5px solid #00bfff; /* Blue border for the video */
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+        }
+
+        .score-box {
+            display: inline-block;
+            padding: 20px;
+            border: 2px solid #00bfff;
+            border-radius: 10px;
+            background-color: #1a1a1a; /* Dark gray score box for contrast */
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.7);
+            transition: transform 0.3s;
+        }
+
+        .score-box:hover {
+            transform: scale(1.05);
+        }
+
+        #score {
+            font-size: 30px;
+            margin: 20px 0;
+        }
+
+        .comment {
+            font-size: 22px;
+            margin-top: 20px;
+            font-weight: bold;
+        }
+
+        .smiley {
+            font-size: 60px;
+            transition: transform 0.3s;
+        }
+
+        .happy {
+            color: #ffd700;
+        }
+
+        .sad {
+            color: #1e90ff;
+        }
+
+        .neutral {
+            color: #a9a9a9;
+        }
+
+        footer {
+            margin-top: 30px;
+            font-size: 14px;
+            color: #777;
+        }
+
+        .additional-features {
+            margin-top: 30px;
+            color: #00bfff; /* Blue color for feature texts */
+        }
+
+        .feature {
+            font-size: 18px;
+            margin: 10px 0;
+            opacity: 0.9;
+        }
+
+        button {
+            background-color: #00bfff; /* Button color */
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: #009acd; /* Darker blue on hover */
+        }
+
+        .fun-fact {
+            margin-top: 20px;
+            font-size: 18px;
+            color: #ffd700; /* Fun fact color */
+        }
+    </style>
+</head>
+<body>
+    <h1>Confidence Meter</h1>
+    <video id="video" width="640" height="480" autoplay></video>
+
+    <div class="score-box" id="score-box">
+        <p id="score">Confidence Score: <span id="score-value">0</span></p>
+        <p class="comment" id="comment"></p>
+        <p id="smiley" class="smiley neutral">😐</p>
+    </div>
+
+    <div class="additional-features">
+        <p class="feature" id="previous-scores">Previous Scores: <span id="previous-scores-list"></span></p>
+        <button id="reset-button">Reset Scores</button>
+    </div>
+
+    <div class="fun-fact" id="fun-fact">Fun Fact: Did you know that smiling can actually improve your mood?</div>
+
+    <script>
+        // Access the camera
+        const video = document.getElementById('video');
+        navigator.mediaDevices.getUserMedia({ video: true })
+            .then(stream => {
+                video.srcObject = stream;
+            })
+            .catch(error => {
+                console.error("Error accessing webcam:", error);
+            });
+
+        let previousScores = [];
+
+        // Capture and send frames periodically
+        async function captureFrame() {
+            const canvas = document.createElement('canvas');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            const context = canvas.getContext('2d');
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            // Convert the frame to a Blob
+            canvas.toBlob(async (blob) => {
+                const formData = new FormData();
+                formData.append('file', blob, 'frame.jpg');
+
+                // Send the frame to the server
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+                document.getElementById('score-value').innerText = result.score;
+                document.getElementById('comment').innerText = result.comment;
+
+                // Update the smiley face based on score
+                const smiley = document.getElementById('smiley');
+                if (result.score > 60) {
+                    smiley.className = 'smiley happy';
+                    smiley.innerText = '😄'; // Happy face
+                } else if (result.score < 40) {
+                    smiley.className = 'smiley sad';
+                    smiley.innerText = '😢'; // Sad face
+                } else {
+                    smiley.className = 'smiley neutral';
+                    smiley.innerText = '😐'; // Neutral face
+                }
+
+                // Store the score
+                previousScores.push(result.score);
+                updatePreviousScores();
+            }, 'image/jpeg');
+        }
+
+        function updatePreviousScores() {
+            const scoresList = previousScores.join(', ');
+            document.getElementById('previous-scores-list').innerText = scoresList;
+        }
+
+        document.getElementById('reset-button').addEventListener('click', () => {
+            previousScores = [];
+            updatePreviousScores();
+        });
+
+        // Capture a frame every second
+        setInterval(captureFrame, 1000);
+    </script>
+
+    <footer>
+        <p>&copy; 2024 Confidence Meter App. All rights reserved.</p>
+    </footer>
+</body>
+</html>
